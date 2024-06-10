@@ -272,8 +272,8 @@ bool Assembler::skipCheck(string& line) {
 }
 int Assembler::instructionCheck(string instruction) {
   regex halt_int_iret_ret(R"(^\s*(halt|int|iret|ret)\s*$)"); // 1, 2, 3, 5
-  regex call(R"(^\s*call\s+((?:[a-zA-Z_][a-zA-Z_0-9]*)|(0x[0-9a-fA-F]+)|(\d+))\s*$)");  // 4
-  regex jmp(R"(^\s*jmp\s+(?:([a-zA-Z_][a-zA-Z_0-9]*)|(0x[0-9a-fA-F]+|\d+))\s*$)");   // 6
+  regex call(R"(^\s*(call)\s+((?:[a-zA-Z_][a-zA-Z_0-9]*)|(0x[0-9a-fA-F]+)|(\d+))\s*$)");  // 4
+  regex jmp(R"(^\s*(jmp)\s+(?:([a-zA-Z_][a-zA-Z_0-9]*)|(0x[0-9a-fA-F]+)|(\d+))\s*$)");   // 6
   regex b_jump(R"(^\s*(beq|bne|bgt)\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*,\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*,\s*(?:[a-zA-Z_][a-zA-Z_0-9]*|0x[0-9a-fA-F]+|\d+)\s*$)");  // beq, bne, bgt - 7, 8, 9
   regex push_pop_not(R"(^\s*(push|pop|not)\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*$)");  // 10, 11, 17
   regex aritm(R"(^\s*(xchg|add|sub|mul|div)\s+\%r(?:[0-9]|1[0-5])\s*,\s*\%r(?:[0-9]|1[0-5])\s*$)"); // 12, 13, 14, 15, 16
@@ -359,10 +359,11 @@ int Assembler::instructionCheck(string instruction) {
 
   // CALL
   smatch oper;
-  if(regex_match(instruction, oper, call))  {
-    cout << "CALL ";
-    string operand = oper.str(1);
-    cout << "operand: " << operand << endl;
+  if(regex_match(instruction, oper, call) || regex_match(instruction, oper, jmp))  {
+    cout << "CALL | JUMP - ";
+    string instr = oper.str(1);
+    string operand = oper.str(2);
+    cout << "operand: " << operand << ", instruction: " + instr << endl;
 
   // <literal>
     int literal;
@@ -381,7 +382,12 @@ int Assembler::instructionCheck(string instruction) {
           section->code.push_back("0" + literalString);
           section->code.push_back("00");
         }
-        section->code.push_back("00"); section->code.push_back("20");
+        if(instr == "call") {
+          section->code.push_back("00"); section->code.push_back("20");
+        }
+        else {  // jmp
+          section->code.push_back("00"); section->code.push_back("30");
+        }
         locationCounter += 4;
         return 0;
       } else {
@@ -404,39 +410,45 @@ int Assembler::instructionCheck(string instruction) {
       literalUse.push_back(LiteralUse(locationCounter, currentSectionNumber, literal));
       // offset goes to instruction
       section->code.push_back("00"); section->code.push_back("00");
-      section->code.push_back("F0"); section->code.push_back("21");
+      if(instr == "call") {
+        section->code.push_back("F0"); section->code.push_back("21");
+      }
+      else {  // jmp
+        section->code.push_back("F0"); section->code.push_back("38");
+      }
+      
       locationCounter += 4;
       return 0;
     }
   // SYMBOL
     } else {    
-      // operand <= <symbol>
-      // - - - - - - SYMBOL TABLE CHECK - - - - - -
       if(symbolTable.exists(operand)) {   // symbol is in the table
         if(symbolTable.getId(operand) == symbolTable.getSectionNumber(operand)) {
           cout << "Error:Assembler:instructionCheck: call <symbol> -> call tried for section!!!" << endl;
           return -2;
         }
       } else {      // symbol is NOT in the table
+        cout << "Symbol: '" + operand+ "' from " + instr + " added to the symbol table" << endl;
         symbolTable.add(operand);
-        addSymbolToLiteralTable(operand);
       }
+      addSymbolToLiteralTable(operand);
       // displacement set to 0x000
       // offset goes to instruction
       
       section->code.push_back("00"); section->code.push_back("00");
-      section->code.push_back("F0"); section->code.push_back("21");
-      
-      /* long addr;
-      for(const auto&lit: section->literalTable)
-        if(lit.symbolName == operand) addr = lit.address; */
+      if(instr == "call") {
+        section->code.push_back("F0"); section->code.push_back("21");
+      }
+      else {  // jmp
+        section->code.push_back("F0"); section->code.push_back("38");
+      }
       
       // make new info about symbol use
       Info newInfo;
       newInfo.address = locationCounter;
       newInfo.sectionName = section->sectionName;
       newInfo.type = 0; // 
-      symbolTable.addInfoToSymbol(operand, newInfo); // info -> this symbol used here */
+      symbolTable.addInfoToSymbol(operand, newInfo); 
       locationCounter += 4;
       return 0;
     }
@@ -444,10 +456,10 @@ int Assembler::instructionCheck(string instruction) {
     return -1;
   }
   
-  if(regex_match(instruction, jmp))  {
+  /* if(regex_match(instruction, jmp))  {
     cout << "JMP" << endl;
     return -1;
-  }
+  }*/
   
   if(regex_match(instruction, b_jump))  {
     cout << "b_jump" << endl;
@@ -563,6 +575,7 @@ int Assembler::processLabel(string labelName) {
     symbolTable.setValue(labelName, locationCounter);
   } else {
     // symbol not in table
+    cout << "Symbol: '" + labelName + "' from label added to the symbol table" << endl;
     symbolTable.add(labelName);
     symbolTable.setSectionNumber(labelName, currentSectionNumber);
     symbolTable.setValue(labelName, locationCounter);
@@ -616,6 +629,7 @@ int Assembler::global(string symbols) {
     } else {
       // does not exists
       // add symbol and set isGlobal = true
+      cout << "Symbol: '" + result[i] + "' from .global added to the symbol table" << endl;
       symbolTable.add(result[i]);
       symbolTable.setIsGlobal(result[i], true);
       addSymbolToLiteralTable(result[i]);
@@ -658,6 +672,7 @@ int Assembler::processExtern(string symbols) {
     } else {
       // does not exists
       // add symbol and set isGlobal = true and set isExtern = true
+      cout << "Symbol: '" + result[i] + "' from .extern added to the symbol table" << endl;
       symbolTable.add(result[i]);
       symbolTable.setIsExtern(result[i], true);
       symbolTable.setIsGlobal(result[i], true); // for linker
@@ -776,6 +791,7 @@ int Assembler::section(string sectionName) {
     setSectionSize(currentSectionNumber, locationCounter);
     // cout << "Current section ends: " + to_string(currentSectionNumber) << ", size is " + to_string(newSize) << endl;
     // start new section and add it to the symbol table
+    cout << "Symbol: '" + sectionName + "' from .section added to the symbol table" << endl;
     symbolTable.add(sectionName);
     currentSectionNumber = symbolTable.getId(sectionName);
     symbolTable.setSectionNumber(sectionName, currentSectionNumber);
@@ -1026,7 +1042,12 @@ void Assembler::addSymbolToLiteralTable(string symbolName) {
   }
   int address = section->literalTable.at(section->literalTable.size()-1).address + 
                       section->literalTable.at(section->literalTable.size()-1).size;
-  LiteralTableEntry lte(0, "00000000", true, symbolName, address, 4);
+  string value = "00000000";
+  if(symbolTable.getValue(symbolName) >= 0) {
+    value = decimalToHexadecimal(symbolTable.getValue(symbolName));
+  }
+
+  LiteralTableEntry lte(0, value, true, symbolName, address, 4);
   section->literalTable.push_back(lte);
 }
 

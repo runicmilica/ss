@@ -177,13 +177,13 @@ map<string, SymbolTableEntry> SymbolTable::getAllSymbols() {
     cout << "SymbolTable::getSectionNumber: symbol does not exists!" << endl;
     return -1;
   }
-  /* int SymbolTable::getValue(string symName) {
+  int SymbolTable::getValue(string symName) {
     auto s = table.find(symName);
     if(s != table.end())
       return s->second.value;
     cout << "SymbolTable::getValue: symbol does not exists!" << endl;
     return -1;
-  }*/
+  }
  
   long SymbolTable::getSize(string symName) {
     auto s = table.find(symName);
