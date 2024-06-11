@@ -100,7 +100,8 @@ class Assembler {
   string decimalToHexadecimal(int num);
   string decimalToHexadecimalNoFill(long num);
   bool convertStringToNumber(string stringNum, int* number); // returns false if its symbol
-  void addSymbolToLiteralTable(string symbolName);
+  void addSymbolToLiteralTableIfNotAlreadyIn(string symbolName);
+  string getRegNum(string reg);
 };
 
 #endif

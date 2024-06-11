@@ -274,7 +274,7 @@ int Assembler::instructionCheck(string instruction) {
   regex halt_int_iret_ret(R"(^\s*(halt|int|iret|ret)\s*$)"); // 1, 2, 3, 5
   regex call(R"(^\s*(call)\s+((?:[a-zA-Z_][a-zA-Z_0-9]*)|(0x[0-9a-fA-F]+)|(\d+))\s*$)");  // 4
   regex jmp(R"(^\s*(jmp)\s+(?:([a-zA-Z_][a-zA-Z_0-9]*)|(0x[0-9a-fA-F]+)|(\d+))\s*$)");   // 6
-  regex b_jump(R"(^\s*(beq|bne|bgt)\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*,\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*,\s*(?:[a-zA-Z_][a-zA-Z_0-9]*|0x[0-9a-fA-F]+|\d+)\s*$)");  // beq, bne, bgt - 7, 8, 9
+  regex b_jump(R"(^\s*(beq|bne|bgt)\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*,\s*%(r(?:[0-9]|1[0-5])|pc|sp)\s*,\s*([a-zA-Z_][a-zA-Z_0-9]*|0x[0-9a-fA-F]+|\d+)\s*$)");  // beq, bne, bgt - 7, 8, 9
   regex push_pop_not(R"(^\s*(push|pop|not)\s+%(r(?:[0-9]|1[0-5])|pc|sp)\s*$)");  // 10, 11, 17
   regex aritm(R"(^\s*(xchg|add|sub|mul|div)\s+\%r(?:[0-9]|1[0-5])\s*,\s*\%r(?:[0-9]|1[0-5])\s*$)"); // 12, 13, 14, 15, 16
   regex logic(R"(^\s*(and|or|xor|shl|shr)\s+\%r(?:[0-9]|1[0-5])\s*,\s*\%r(?:[0-9]|1[0-5])\s*$)"); // 18, 19, 20, 21, 22
@@ -357,7 +357,7 @@ int Assembler::instructionCheck(string instruction) {
     return -1;
   }
 
-  // CALL
+  // CALL & JMP
   smatch oper;
   if(regex_match(instruction, oper, call) || regex_match(instruction, oper, jmp))  {
     cout << "CALL | JUMP - ";
@@ -431,7 +431,7 @@ int Assembler::instructionCheck(string instruction) {
         cout << "Symbol: '" + operand+ "' from " + instr + " added to the symbol table" << endl;
         symbolTable.add(operand);
       }
-      addSymbolToLiteralTable(operand);
+      addSymbolToLiteralTableIfNotAlreadyIn(operand);
       // displacement set to 0x000
       // offset goes to instruction
       
@@ -461,9 +461,103 @@ int Assembler::instructionCheck(string instruction) {
     return -1;
   }*/
   
-  if(regex_match(instruction, b_jump))  {
+  if(regex_match(instruction, oper, b_jump))  {
     cout << "b_jump" << endl;
-    // return
+    // cout  << "instr: " << oper[1] << ", reg1: " << decimalToHexadecimalNoFill(getRegNum(oper[2])) 
+          // << ", reg2: " << decimalToHexadecimalNoFill(getRegNum(oper[3])) << ", operand: " << oper[4] << endl;
+    // if(gpr1 == gpr2) pc <= operand
+    // if(gpr[B] == gpr[C]) pc <= gpr[A] + D
+    string instr = oper[1];
+    string reg1 = getRegNum(oper[2]);
+    string reg2 = getRegNum(oper[3]);
+    int o;     
+
+    // LITERAL
+    if(convertStringToNumber(oper[4], &o)) {
+      string operand = decimalToHexadecimalNoFill(o);
+      if(operand.length() < 4) {
+        // NO NEED FOR POOL
+        if(operand.length() == 3) {
+          section->code.push_back(operand.substr(1,1) + operand.substr(2,1));
+          section->code.push_back(reg2 + operand.substr(0,1));
+        } else if(operand.length() == 2) {
+          section->code.push_back(operand.substr(0,1) + operand.substr(1,1));
+          section->code.push_back(reg2 + "0");
+        } else {
+          section->code.push_back("0" + operand);
+          section->code.push_back(reg2 + "0");
+        }
+
+        section->code.push_back("0" + reg1);
+        if(instr == "beq") section->code.push_back("31");
+        else if(instr == "bne") section->code.push_back("32");
+        else section->code.push_back("33");
+        locationCounter += 4;
+        return 0;
+      }
+      else {
+        // LITERAL POOL
+        bool exists = false;
+        int address;
+        for(auto& lit:section->literalTable) {
+          // literal is already in the pool
+          if(lit.value == o) {
+            exists = true;
+            address = lit.address;
+          }
+        }
+        if(!exists) { // literal does not exists, add it to the literal table
+          cout << "Assembler::instructionCheck: " + instr +" literal " + to_string(o) + " adding to the literal table" << endl;
+          address = section->literalTable.at(section->literalTable.size()-1).address + 
+                        section->literalTable.at(section->literalTable.size()-1).size;
+          LiteralTableEntry lte(o, decimalToHexadecimal(0), false, "", address, 4);
+          section->literalTable.push_back(lte);
+        }
+        literalUse.push_back(LiteralUse(locationCounter, currentSectionNumber, o));
+        // offset goes to instruction
+        section->code.push_back("00"); section->code.push_back( reg2 + "0");
+        section->code.push_back("0" + reg1);
+        if(instr == "beq") section->code.push_back("39");
+        else if(instr == "bne") section->code.push_back("3a");
+        else section->code.push_back("3b");
+        
+        locationCounter += 4;
+        return 0;
+      }
+    }
+
+    // SYMBOL
+    else {
+      string operand = oper[4];
+      if(symbolTable.exists(operand)) {   // symbol is in the table
+        if(symbolTable.getId(operand) == symbolTable.getSectionNumber(operand)) {
+          cout << "Error:Assembler:instructionCheck: " + instr + " <symbol> -> call tried for section!!!" << endl;
+          return -2;
+        }
+      } else {      // symbol is NOT in the table
+        cout << "Symbol: '" + operand+ "' from " + instr + " added to the symbol table" << endl;
+        symbolTable.add(operand);
+      }
+      addSymbolToLiteralTableIfNotAlreadyIn(operand);
+      // displacement set to 0x000
+      // offset goes to instruction
+      
+      section->code.push_back("00"); section->code.push_back( reg2 + "0");
+      section->code.push_back("0" + reg1);
+      if(instr == "beq") section->code.push_back("39");
+      else if(instr == "bne") section->code.push_back("3a");
+      else section->code.push_back("3b");
+      
+      // make new info about symbol use
+      Info newInfo;
+      newInfo.address = locationCounter;
+      newInfo.sectionName = section->sectionName;
+      newInfo.type = 0; // 
+      symbolTable.addInfoToSymbol(operand, newInfo); 
+      locationCounter += 4;
+      return 0;
+    }
+    return -1;
   }
   
   if(regex_match(instruction, push_pop_not))  {
@@ -547,11 +641,11 @@ int Assembler::skip(string literal) {
   if(regex_match(literal, rDEC)) {
     // decimal number
     // cout << "literal: _" + literal + "_ : " << to_string(stoi(literal, nullptr, 10)) << endl;
-    num = stoi(literal, nullptr, 10);
+    num = stol(literal, nullptr, 10);
   } else if(regex_match(literal, rHEX)) {
     // hexadecimal number
     // cout << "literal: _" + literal + "_ : " << to_string(stoi(literal, nullptr, 16))<< endl;
-    num = stoi(literal, nullptr, 16);
+    num = stol(literal, nullptr, 16);
   }
   SectionTableEntry* s = getCurrentSectionTableEntry(currentSectionNumber);
   for (int i = 0; i < num; i++)
@@ -598,6 +692,20 @@ int Assembler::processLabel(string labelName) {
       LiteralTableEntry lte(locationCounter, decimalToHexadecimal((int)locationCounter), true, labelName, address, 4);
       section->literalTable.push_back(lte);
     }
+    // for situations where definition is after usage of symbol
+    // if symbol is used in other sections, pool needs to be fixed
+    // symbol value has to update 
+    for(auto& s: sectionTable) {
+      if(s.second.number != section->number) {
+        for(auto& lit:s.second.literalTable) {
+          if(lit.symbolName == labelName) {
+            // symbol already used so it is in literal table
+            lit.value = locationCounter;
+            lit.hexValue = decimalToHexadecimal((int)locationCounter);
+          }
+        }
+      }
+    }
   return 0;
 }
 
@@ -632,7 +740,7 @@ int Assembler::global(string symbols) {
       cout << "Symbol: '" + result[i] + "' from .global added to the symbol table" << endl;
       symbolTable.add(result[i]);
       symbolTable.setIsGlobal(result[i], true);
-      addSymbolToLiteralTable(result[i]);
+      addSymbolToLiteralTableIfNotAlreadyIn(result[i]);
     }
   }
   return 0;
@@ -676,7 +784,7 @@ int Assembler::processExtern(string symbols) {
       symbolTable.add(result[i]);
       symbolTable.setIsExtern(result[i], true);
       symbolTable.setIsGlobal(result[i], true); // for linker
-      addSymbolToLiteralTable(result[i]);
+      addSymbolToLiteralTableIfNotAlreadyIn(result[i]);
     }
   }
   return 0;
@@ -840,8 +948,8 @@ int Assembler::word(string params) { // not done, just for testing
       cout << "NUMBER" << endl;
       
       int num;
-      if(regex_match(result[i], rDEC))  num = stoi(result[i], nullptr, 10);
-      else if(regex_match(result[i], rHEX)) num = stoi(result[i], nullptr, 16);
+      if(regex_match(result[i], rDEC))  num = stol(result[i], nullptr, 10);
+      else if(regex_match(result[i], rHEX)) num = stol(result[i], nullptr, 16);
       
       string numString = decimalToHexadecimal(num);
       if(numString.length() > 8) {
@@ -861,7 +969,7 @@ int Assembler::word(string params) { // not done, just for testing
       if(!symbolTable.exists(result[i])) { // symbol not in symbol table
         cout << "Symbol: '" + result[i] + "' from .word added to the symbol table" << endl;
         symbolTable.add(result[i]);
-        addSymbolToLiteralTable(result[i]);
+        addSymbolToLiteralTableIfNotAlreadyIn(result[i]);
       } 
       // new info about using symbol here
       Info newInfo;
@@ -1034,7 +1142,7 @@ void Assembler::fillRelocationTables() {
   }
 }
 
-void Assembler::addSymbolToLiteralTable(string symbolName) {
+void Assembler::addSymbolToLiteralTableIfNotAlreadyIn(string symbolName) {
   SectionTableEntry* section = getCurrentSectionTableEntry(currentSectionNumber);
   for(const auto& lit:section->literalTable) {
     if(lit.symbolName == symbolName)
@@ -1043,6 +1151,7 @@ void Assembler::addSymbolToLiteralTable(string symbolName) {
   int address = section->literalTable.at(section->literalTable.size()-1).address + 
                       section->literalTable.at(section->literalTable.size()-1).size;
   string value = "00000000";
+  // if symbol is already defined use its value
   if(symbolTable.getValue(symbolName) >= 0) {
     value = decimalToHexadecimal(symbolTable.getValue(symbolName));
   }
@@ -1051,12 +1160,29 @@ void Assembler::addSymbolToLiteralTable(string symbolName) {
   section->literalTable.push_back(lte);
 }
 
+string Assembler::getRegNum(string reg) {
+  regex ri("^r(?:[0-9]|1[0-5])$");
+  regex sp("^sp$");
+  regex pc("^pc$");
+  int num;
+  if(regex_match(reg, ri)) {
+    reg = reg.substr(1);
+    convertStringToNumber(reg, &num);
+  } 
+  else if(regex_match(reg, sp)) num = 14;
+  else if(regex_match(reg, pc)) num = 15;
+  
+  stringstream s;
+  s << setw(1) << hex << num;
+  return s.str();
+}
+
 bool Assembler::convertStringToNumber(string stringNum, int* number) {
   regex rHEX("^0[xX][0-9a-fA-F]+$");
   regex rDEC("^[0-9]+$");
   if(regex_match(stringNum, rHEX) || regex_match(stringNum, rDEC)) {    
-    if(regex_match(stringNum, rDEC))  *number = stoi(stringNum, nullptr, 10);
-    else if(regex_match(stringNum, rHEX)) *number = stoi(stringNum, nullptr, 16);
+    if(regex_match(stringNum, rDEC))  *number = stol(stringNum, nullptr, 10);
+    else if(regex_match(stringNum, rHEX)) *number = stol(stringNum, nullptr, 16);
     return true;
   }
   return false;

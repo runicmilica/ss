@@ -1,15 +1,11 @@
+
 .section sekcija1     # 1
-call 0x0A0B0C            # 2
-.word a       # 3
-.word b      # 4
-call a         # 5
-a:
-.section sekcija2   # 6
-call a        # 7
-b:              # 8
-.extern c     # 9
-jmp c         # 10
-.word b
-halt
+beq %r11, %r15, 45           # 2
+bne     %sp   , %pc,   5
+bgt %r0, %pc,  a33
+.word 0xffffffff
+.section nova
+.word 0x1234
+a33:
 .end
 
