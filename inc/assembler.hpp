@@ -30,12 +30,20 @@ struct LiteralTableEntry {
   }
 };
 
-struct LiteralUse {
+struct UseInfo {
   int address;
   int section;
   int value;
-  LiteralUse(int a, int s, int v) {
+  int type;
+  // type 0 - for .word <symbol>
+  // type 1 - for jumps and literal pool updates
+  // type 2 - for load/store mem_reg_pom with symbol
+  //        - check if symbol defined-if not ERROR
+  //        - check if symbol value can be written in 12b-if not ERROR
+  string symbolName;
+  UseInfo(int a, int s, int v, int t, string name) {
     address = a; section = s; value = v;
+    type = t; symbolName = name;
   }
 };
 
@@ -63,7 +71,7 @@ class Assembler {
   long locationCounter;
   SymbolTable symbolTable;
   map<string, SectionTableEntry> sectionTable;
-  vector<LiteralUse> literalUse;
+  vector<UseInfo> literalUse;
   // relocation table for each section
   // map<string, RelocationTable*> relocationTables;
 
@@ -85,7 +93,7 @@ class Assembler {
   int labelCheck(string& label);
   int instructionCheck(string instruction);
 
-  void fillRelocationTables();
+  int fillRelocationTables();
   void setSectionSize(int num, long size);
   SectionTableEntry* getCurrentSectionTableEntry(int num);
   int processLabel(string labelName);
@@ -93,14 +101,16 @@ class Assembler {
   int processExtern(string symbols);
   void printSymbolTableIntoFile();
   void printSectionTableIntoFile();
+  void printForLinkerIntoFile();
   // void printSymbolUseInfoTableIntoFile();
   int section(string sectionName);
   int word(string params);
   int skip(string literal);
-  string decimalToHexadecimal(int num);
+  string decimalToHexadecimal(long num);
   string decimalToHexadecimalNoFill(long num);
-  bool convertStringToNumber(string stringNum, int* number); // returns false if its symbol
-  void addSymbolToLiteralTable(string symbolName);
+  bool convertStringToNumber(string stringNum, long* number); // returns false if its symbol
+  void addSymbolToLiteralTableIfNotAlreadyIn(string symbolName);
+  string getRegNum(string reg);
 };
 
 #endif

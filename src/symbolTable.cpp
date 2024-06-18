@@ -43,6 +43,45 @@ string SymbolTable::getPrintRow(string symName) {
     ", isExtern: " + to_string(s->second.isExtern);
   return "No symbol!";
 }
+string SymbolTable::decimalToHexadecimal(long num, int width) {
+  stringstream s;
+  s << setfill('0') << setw(width) << hex << num;
+  return s.str();
+}
+
+void SymbolTable::printSymbolTableForLinker(string filename) {
+  ofstream file; 
+  file.open (filename);
+  file << ":SYMBOL TABLE:" << endl;
+  file << "symbolName:id:sec:  value :size:" << endl;
+  for(const auto& s: table) {
+    // for sections and global symbols
+    if(s.second.isGlobal || s.second.id == s.second.sectionNumber) {
+      string value;
+      string size;
+      if(s.second.id == s.second.sectionNumber) {
+        value = decimalToHexadecimal(0, 8);
+        size = decimalToHexadecimal(s.second.size, 0);
+      }
+      else {
+        if(s.second.value == -1)
+          value = "-1";
+        else
+          value = decimalToHexadecimal(s.second.value, 8);
+        size = decimalToHexadecimal(0, 0);
+      }
+      
+      file << setw(10) <<  s.second.symbolName << ":"
+           << setw(2) << decimalToHexadecimal(s.second.id, 0) << ":"
+           << setw(3) << decimalToHexadecimal(s.second.sectionNumber, 0) << ":"
+           << setw(8) << value << ":"
+           << setw(4) << size << ":"
+           << endl;
+    }
+  }
+
+  file.close();
+}
 
 void SymbolTable::printSymbolTable(string filename, bool flag) {
   if(!flag) { // print
@@ -84,8 +123,8 @@ void SymbolTable::printSymbolTable(string filename, bool flag) {
       << std::setw(10) << "    " + to_string(s.second.isExtern) << endl;
       file << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" << endl;
     }
-    file << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" << endl << endl << endl;
-    file << "- - - - - - - - - - - - - - - - SYMBOL USE - - - - - - - - - - - - - - - - -" << endl;
+    // file << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" << endl << endl << endl;
+    /* file << "- - - - - - - - - - - - - - - - SYMBOL USE - - - - - - - - - - - - - - - - -" << endl;
     
     for(const auto& s: table) {
       if(s.second.usedHere.size() > 0) {
@@ -102,7 +141,7 @@ void SymbolTable::printSymbolTable(string filename, bool flag) {
         file << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" << endl;
       }
       
-    }
+    } */
     file << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" << endl << endl << endl;
     file.close();
   }

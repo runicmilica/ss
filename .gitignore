@@ -1,0 +1,7 @@
+assembler
+linker
+emulator
+*.s
+*.o
+*.txt
+*.hex

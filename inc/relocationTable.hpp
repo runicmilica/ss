@@ -16,9 +16,10 @@ class RelocationTable {
     long offset;
     long symbolTableRef;
     int type;
+    int addend;
     // sign??
     Entry() {
-      offset = 0; symbolTableRef = 0; type = -1;
+      offset = 0; symbolTableRef = 0; type = -1; addend = 0;
     }
   };
   string sectionName;
@@ -27,8 +28,11 @@ class RelocationTable {
   public:
 
   RelocationTable(string secName);
-  void add(string symbolName, long offset, long symbolTableRef, int type);
+  void add(string symbolName, long offset, long symbolTableRef, int type, int addend);
   void printRelocationTableForSectionIntoFile(string filename);
+  bool relocExistsForPoolRelocations(long offs, long symTabRef, int add);
+  void printForLinker(string filename);
+  string decimalToHexadecimal(long num, int width);
 };
 
 

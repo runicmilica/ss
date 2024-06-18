@@ -51,6 +51,8 @@ class SymbolTable {
   SymbolTable();
   bool exists(string symName);
   void printSymbolTable(string filename, bool flag);
+  void printSymbolTableForLinker(string filename);
+  string decimalToHexadecimal(long num, int width);
   void addInfoToSymbol(string symbolName, Info info);
   map<string, SymbolTableEntry> getAllSymbols();
   // vector<Info> getInfoListForSymbol(string symName);
@@ -69,6 +71,9 @@ class SymbolTable {
   long getSize(int id);
   bool getIsExtern(string symName);
   int getId(string symName);
+  int getMaxId() {
+    return id;
+  }
 };
 
 #endif
