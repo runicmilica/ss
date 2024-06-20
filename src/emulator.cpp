@@ -47,10 +47,10 @@ int Emulator::fillMemory() {
     }
   }
 
-/* fileOUT << "- - - - - MEMORY - - - - -" << endl;
+fileOUT << "- - - - - MEMORY - - - - -" << endl;
   for(const auto&m: machine->memory) {
     fileOUT << "address: " << decimalToHexadecimal(m.first, 8) << ", byte:" << m.second << endl;
-  }*/
+  }
   return 0;
 }
 

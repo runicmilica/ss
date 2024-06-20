@@ -18,12 +18,12 @@ const int cause = 2;
 
 
 struct Machine {
-  long registers[16] = {0};
+  uint32_t registers[16] = {0};
   map<long, string> memory;
   // status   - 0
   // handler  - 1
   // cause    - 2
-  long csr[3] = {0};
+  uint32_t csr[3] = {0};
   bool stop = false;
   Machine() {
     registers[pc] = 1073741824; // 0x40000000

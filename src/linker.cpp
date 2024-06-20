@@ -473,6 +473,7 @@ void Linker::printCode() {
           // find all sections with that name
           for(auto& section: file.secs) {
             long lc = 0;
+            while(i % 8 != 0) i++;
             if(sectionName == section.second.secName) {
                 
               
