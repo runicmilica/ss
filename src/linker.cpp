@@ -13,10 +13,43 @@ using namespace std;
 Linker::Linker(vector<string> iFiles, string oFile, map<string, string> sa) {
   cout << "Linker constructor." << endl;
   inputFiles = iFiles; outputFile = oFile; sectionAddr = sa;
-  if(parseInputFiles() < 0) return; // also calculates sections total size
-  if(mapSections() < 0) return;
-  if(fillSymbolTableLinker() < 0) return;
-  if(fillSectionTableLinker() < 0) return;
+  bool error = false;
+  if(parseInputFiles() < 0) error = true; // also calculates sections total size
+  if(error) {
+    ofstream outfile; 
+    outfile.open(outputFile);
+
+    outfile << "Error while linking." << endl;
+    outfile.close();
+    return;
+  }
+  if(mapSections() < 0) error = true;
+  if(error) {
+    ofstream outfile; 
+    outfile.open(outputFile);
+
+    outfile << "Error while linking." << endl;
+    outfile.close();
+    return;
+  }
+  if(fillSymbolTableLinker() < 0) error = true;
+  if(error) {
+    ofstream outfile; 
+    outfile.open(outputFile);
+
+    outfile << "Error while linking." << endl;
+    outfile.close();
+    return;
+  }
+  if(fillSectionTableLinker() < 0) error = true;
+  if(error) {
+    ofstream outfile; 
+    outfile.open(outputFile);
+
+    outfile << "Error while linking." << endl;
+    outfile.close();
+    return;
+  }
   fixRelocations();
   printCode();
   /* for(const auto&i: inputFiles)
@@ -26,6 +59,7 @@ Linker::Linker(vector<string> iFiles, string oFile, map<string, string> sa) {
     cout << s.first << " " << s.second << endl;*/
 
 }
+
 
 string Linker::decimalToHexadecimal(long number, int width) {
   stringstream ss;
@@ -301,13 +335,51 @@ int Linker::fillSymbolTableLinker() {
     for (auto &sym : file.symTab) {
       if(sym.second.id == sym.second.sec) continue; // section
       else {  // only for symbols
-        if(sym.second.value == -1) continue;  // extern symbol
+
         auto find = symbolTableLinker.find(sym.second.symbolName);
         if(find != symbolTableLinker.end()) {
-          cout << "Error:Linker: Multiple definition of symbol " << sym.second.symbolName << endl;
-          return -1;
+          // symbol is in the table
+          // check values
+          if(find->second >= 0 && sym.second.value >= 0) {
+            // multiple definition
+            cout << "Error:Linker: Multiple definition of symbol " << sym.second.symbolName << endl;
+            return -1;
+          }
+
+          if(find->second >= 0 && sym.second.value < 0) continue;
+
+          if(find->second < 0 && sym.second.value >= 0) {
+            find->second = sym.second.value;
+          }
+        } else {
+          // symbol not in the table until now
+          symbolTableLinker.insert(pair<string, long>(sym.second.symbolName, sym.second.value));
         }
+        // if(sym.second.value == -1) continue;  // extern symbol
+        // auto find = symbolTableLinker.find(sym.second.symbolName);
+        // if(find != symbolTableLinker.end()) {
+        //   cout << "Error:Linker: Multiple definition of symbol " << sym.second.symbolName << endl;
+        //   return -1;
+        // }
         // find address of section that this symbol belongs to
+        /*long addr;
+        for (auto &sec : file.secs) {
+          cout << "sec.second.id " << sec.second.id << " sym.second.sec" << sym.second.sec << endl;
+          if(sec.second.id == sym.second.sec) {
+            // cout << "here "<< sec.first << " " << sec.second.address << endl;
+            addr = sec.second.address;
+          }
+        }
+        // new value of symbol is address + value
+        cout << "before insert " << sym.second.symbolName << " " << decimalToHexadecimal(addr, 8) << " " << decimalToHexadecimal(sym.second.value, 8)  << endl;
+        symbolTableLinker.insert(pair<string, long>(sym.second.symbolName, addr + sym.second.value));*/
+      }
+    }
+  }
+
+  /* for (auto &file : fileInfos) {
+    for (auto &sym : file.symTab) {
+
         long addr;
         for (auto &sec : file.secs) {
           cout << "sec.second.id " << sec.second.id << " sym.second.sec" << sym.second.sec << endl;
@@ -319,9 +391,31 @@ int Linker::fillSymbolTableLinker() {
         // new value of symbol is address + value
         cout << "before insert " << sym.second.symbolName << " " << decimalToHexadecimal(addr, 8) << " " << decimalToHexadecimal(sym.second.value, 8)  << endl;
         symbolTableLinker.insert(pair<string, long>(sym.second.symbolName, addr + sym.second.value));
+    }
+  }*/
+
+  for(auto& s:symbolTableLinker) {
+    if(s.second < 0) {
+      cout << "Error:fillSymbolTableLinker: Symbol " << s.first << " not defined!" << endl;
+      return -1;
+    } else {
+      for (auto &file : fileInfos) {
+        auto find = file.symTab.find(s.first);
+        if(find != file.symTab.end()) {
+          if(find->second.value == s.second) {
+            for (auto &sec : file.secs) {
+              // cout << "sec.second.id " << sec.second.id << " sym.second.sec" << sym.second.sec << endl;
+              if(sec.second.id == find->second.sec) {
+                s.second += sec.second.address;
+              }
+            }
+          }
+        }
       }
     }
   }
+
+
 
   cout << "SymbolTableLinker: " << endl;
   for(const auto& s: symbolTableLinker) {
@@ -330,7 +424,6 @@ int Linker::fillSymbolTableLinker() {
   cout << "- - - - - - PRINT END fillSymbolTableLinker - - - - - - " << endl << endl;
   return 0;
 }
-
 int Linker::fillSectionTableLinker() {
   cout << "- - - - - - PRINT FROM fillSectionTableLinker - - - - - - " << endl << endl;
   for(auto& s: sectionSize) { // all different sections

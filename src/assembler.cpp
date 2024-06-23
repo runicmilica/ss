@@ -95,7 +95,10 @@ int Assembler::assemble() {
       currentSectionNumber = 0;
       locationCounter = 0;
       for(const auto&sym: symbolTable.getAllSymbols()) {
-        if(sym.second.value == -1 && sym.second.isGlobal == true && !sym.second.isExtern) {
+        /* cout << "Assembler::assemble: end: symbol -> " << sym.second.symbolName << 
+         ", value -> " << sym.second.value << ", isGlobal -> " << sym.second.isGlobal
+         << ", isExtern -> " << sym.second.isExtern << endl;*/
+        if(sym.second.value == -1 && !sym.second.isGlobal && !sym.second.isExtern && sym.second.id != sym.second.sectionNumber) {
           cout << "Error:Assembler::assemle: symbol " + sym.second.symbolName + " not defined. " << endl;
           errorFlag = true;
           break;
@@ -111,12 +114,12 @@ int Assembler::assemble() {
         for(const auto& l: sec.second.literalTable) {
           size += l.size;
         }
-        cout << "size of lit table: " << size << endl;
+        // cout << "size of lit table: " << size << endl;
         sec.second.size += size;
         symbolTable.setSize(sec.second.number, sec.second.size);
       }
-      // printSymbolTableIntoFile();
-      // printSectionTableIntoFile();
+      printSymbolTableIntoFile();
+      printSectionTableIntoFile();
       // printSymbolUseInfoTableIntoFile();
       printForLinkerIntoFile();
       break;
@@ -198,6 +201,10 @@ int Assembler::assemble() {
     file.open ("p_" + outputFile);
     file << "Error::Assembler:: check console for more information!" << endl;
     file.close();
+    ofstream fileo; 
+    fileo.open (outputFile);
+    fileo << "Error::Assembler:: check console for more information!" << endl;
+    fileo.close();
     return -1;
   }
   if(!endFlag) {
@@ -1154,11 +1161,11 @@ int Assembler::processLabel(string labelName) {
   if(symbolTable.exists(labelName)) {
     // symbol in table
     // check if symbol is extern
-    if(symbolTable.getIsExtern(labelName)) {
+    /* if(symbolTable.getIsExtern(labelName)) {
       cout << "found" << endl;
       cout << "Error:Assembler:processLabel: definition of extern symbol: " << labelName << "!" << endl;
       return -1;
-    }
+    }*/
     symbolTable.setSectionNumber(labelName, currentSectionNumber);
     symbolTable.setValue(labelName, locationCounter);
   } else {
@@ -1211,7 +1218,7 @@ int Assembler::global(string symbols) {
   for (; it != end; ++it) {
       result.push_back(it->str());
   }
-  for(int i = 0; i < result.size(); i++) {
+  for(size_t i = 0; i < result.size(); i++) {
     // for each symbol in <symbol_list>
     // check if symbol exists in symbol table
     if(symbolTable.exists(result[i])) {
@@ -1248,7 +1255,7 @@ int Assembler::processExtern(string symbols) {
   for (; it != end; ++it) {
       result.push_back(it->str());
   }
-  for(int i = 0; i < result.size(); i++) {
+  for(size_t i = 0; i < result.size(); i++) {
     // for each symbol in <symbol_list>
     // check if symbol exists in symbol table
     if(symbolTable.exists(result[i])) {
@@ -1264,10 +1271,10 @@ int Assembler::processExtern(string symbols) {
         return -2;
       }
       // check if already defined
-      if(symbolTable.getSectionNumber(result[i]) != 0) {
+      /* if(symbolTable.getSectionNumber(result[i]) != 0) {
         cout << "Error:Assembler::processExtern: .extern for defined symbol -> " + result[i] + "!" << endl;
         return -3;
-      }
+      }*/
       // set isExtern = true
       symbolTable.setIsExtern(result[i], true);
       symbolTable.setIsGlobal(result[i], true); // for linker
@@ -1510,7 +1517,7 @@ int Assembler::word(string params) { // not done, just for testing
   for (; it != end; ++it) {
       result.push_back(it->str());
   }
-  for(int i = 0; i < result.size(); i++) {
+  for(size_t i = 0; i < result.size(); i++) {
     // cout << result[i] << " location counter after increment " << locationCounter << endl;
     // decimal, hexadecimal, symbol
     regex rHEX("^0[xX][0-9a-fA-F]+$");
@@ -1738,7 +1745,7 @@ int Assembler::fillRelocationTables() {
     }
   }*/
   for(auto& use:literalUse) {
-    cout << "FILL RELOCATIONS " << endl;
+    // cout << "FILL RELOCATIONS " << endl;
     if(use.type == 0) { // for .word, put symbol value in code
       SectionTableEntry* sec = getCurrentSectionTableEntry(use.section);
       int value = symbolTable.getValue(use.symbolName);
