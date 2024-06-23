@@ -30,7 +30,7 @@ struct SymbolTableEntry {
     SymbolTableEntry() {
       this->symbolName = "";
       this->sectionNumber = 0;
-      this->value = -1;
+      this->value = 0;
       this->isGlobal = false;
       this->isExtern = false;
       this->id = 0;

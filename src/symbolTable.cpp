@@ -53,7 +53,7 @@ void SymbolTable::printSymbolTableForLinker(string filename) {
   ofstream file; 
   file.open (filename);
   file << ":SYMBOL TABLE:" << endl;
-  file << "symbolName:id:sec:  value :size:" << endl;
+  file << "  symbolName   :id:sec:  value :size:" << endl;
   for(const auto& s: table) {
     // for sections and global symbols
     if(s.second.isGlobal || s.second.id == s.second.sectionNumber) {
@@ -65,13 +65,13 @@ void SymbolTable::printSymbolTableForLinker(string filename) {
       }
       else {
         if(s.second.value == -1)
-          value = "-1";
+          value = "00000000";
         else
           value = decimalToHexadecimal(s.second.value, 8);
         size = decimalToHexadecimal(0, 0);
       }
       
-      file << setw(10) <<  s.second.symbolName << ":"
+      file << setw(15) <<  s.second.symbolName << ":"
            << setw(2) << decimalToHexadecimal(s.second.id, 0) << ":"
            << setw(3) << decimalToHexadecimal(s.second.sectionNumber, 0) << ":"
            << setw(8) << value << ":"

@@ -98,7 +98,7 @@ int Assembler::assemble() {
         /* cout << "Assembler::assemble: end: symbol -> " << sym.second.symbolName << 
          ", value -> " << sym.second.value << ", isGlobal -> " << sym.second.isGlobal
          << ", isExtern -> " << sym.second.isExtern << endl;*/
-        if(sym.second.value == -1 && !sym.second.isGlobal && !sym.second.isExtern && sym.second.id != sym.second.sectionNumber) {
+        if(sym.second.sectionNumber == 0 && !sym.second.isGlobal && !sym.second.isExtern && sym.second.id != sym.second.sectionNumber) {
           cout << "Error:Assembler::assemle: symbol " + sym.second.symbolName + " not defined. " << endl;
           errorFlag = true;
           break;

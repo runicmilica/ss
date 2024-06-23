@@ -340,21 +340,23 @@ int Linker::fillSymbolTableLinker() {
         if(find != symbolTableLinker.end()) {
           // symbol is in the table
           // check values
-          if(find->second >= 0 && sym.second.value >= 0) {
+          if(find->second >= 0 && sym.second.sec != 0) {
             // multiple definition
             cout << "Error:Linker: Multiple definition of symbol " << sym.second.symbolName << endl;
             return -1;
           }
 
-          if(find->second >= 0 && sym.second.value < 0) continue;
+          if(find->second >= 0 && sym.second.sec == 0) continue;
 
-          if(find->second < 0 && sym.second.value >= 0) {
+          if(find->second < 0 && sym.second.sec != 0) {
             find->second = sym.second.value;
           }
         } else {
           // symbol not in the table until now
-          symbolTableLinker.insert(pair<string, long>(sym.second.symbolName, sym.second.value));
+          long val = sym.second.sec == 0 ? -1 : sym.second.value;
+          symbolTableLinker.insert(pair<string, long>(sym.second.symbolName, val));
         }
+        /*
         // if(sym.second.value == -1) continue;  // extern symbol
         // auto find = symbolTableLinker.find(sym.second.symbolName);
         // if(find != symbolTableLinker.end()) {
@@ -362,7 +364,7 @@ int Linker::fillSymbolTableLinker() {
         //   return -1;
         // }
         // find address of section that this symbol belongs to
-        /*long addr;
+        long addr;
         for (auto &sec : file.secs) {
           cout << "sec.second.id " << sec.second.id << " sym.second.sec" << sym.second.sec << endl;
           if(sec.second.id == sym.second.sec) {
