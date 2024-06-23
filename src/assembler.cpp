@@ -1158,6 +1158,10 @@ int Assembler::skip(string literal) {
 }
 
 int Assembler::processLabel(string labelName) {
+  if(currentSectionNumber < 0) {
+    cout << "Error: Definition of symbol outside section!" << endl;
+    return -1;
+  }
   if(symbolTable.exists(labelName)) {
     // symbol in table
     // check if symbol is extern
@@ -1296,7 +1300,7 @@ void Assembler::printSectionTableIntoFile() {
   file.open ("p_" + outputFile, ios::app);
 
   // literal use
-    file << "- - - - - - - - - - - - - - - - literal use - - - - - - - - - - - - - - -" << endl;
+    /* file << "- - - - - - - - - - - - - - - - literal use - - - - - - - - - - - - - - -" << endl;
       file 
           << std::setw(10) << "section | "
           << std::setw(15) << "  value   | "
@@ -1312,7 +1316,7 @@ void Assembler::printSectionTableIntoFile() {
             << std::setw(15) << setfill(' ')<< c.symbolName
             << std::setw(10) << " " + to_string(c.address)
             << std::setw(8) << " " + to_string(c.type)  << endl;
-      }
+      }*/
   
   for (const auto& s: sectionTable)
   {
