@@ -472,9 +472,9 @@ void Linker::fixRelocations() {
         // offset is decimal value
         // everything will be 4B in literal pool
         // find what it refers to in symbol table for this file
-        if(file.filename == "main.o") {
+        /* if(file.filename == "main.o") {
           cout << "reloc: offset: " << reloc.offset << ", symtabref: " << reloc.symTabRef << ", addend: "<<  reloc.addend << endl;
-        }
+        }*/
         string symName;
         for(auto& sym:file.symTab){
           if(sym.second.id == reloc.symTabRef)
@@ -485,25 +485,15 @@ void Linker::fixRelocations() {
         // find its new value from new symbol table => long value
         
         auto value = symbolTableLinker.find(symName);
-        cout << "symName: " << symName << ", value->first: " << value->first << ", value->second: " << value->second << endl;
+        // cout << "symName: " << symName << ", value->first: " << value->first << ", value->second: " << value->second << endl;
         if(value != symbolTableLinker.end()){
           
           string valueString = decimalToHexadecimal(value->second + reloc.addend, 8);
-          if(symName == "value4") {
-            cout << "value4: offset: " << decimalToHexadecimal(reloc.offset) << ", valueToWrite: " << valueString << endl;
-            cout << "code before change " << sec.second.code.at(reloc.offset) << " " << sec.second.code.at(reloc.offset + 1) << " "
-            << sec.second.code.at(reloc.offset+2) << " " << sec.second.code.at(reloc.offset+3)   << endl; 
-          }
-
         
           sec.second.code.at(reloc.offset)     = valueString.substr(6, 2);
           sec.second.code.at(reloc.offset + 1) = valueString.substr(4, 2);
           sec.second.code.at(reloc.offset + 2) = valueString.substr(2, 2);
           sec.second.code.at(reloc.offset + 3) = valueString.substr(0, 2);
-          if(symName == "value4") {
-          cout << "code after change " << sec.second.code.at(reloc.offset) << " " << sec.second.code.at(reloc.offset + 1) << " "
-            << sec.second.code.at(reloc.offset+2) << " " << sec.second.code.at(reloc.offset+3)   << endl;
-          }
           continue;
         }
 
