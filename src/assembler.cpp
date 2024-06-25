@@ -53,18 +53,6 @@ int Assembler::assemble() {
   bool endFlag = false, errorFlag = false;
   while(getline(fileInput, line)) {
     i++;
-    /*  One directive per line*
-      1.  Comment - starts with '#' and is inline
-      2.  Label - at the beginning (behind white spaces*) + ?directive
-      3.  Section [.section <section_name>], previous section ends 
-      4.  End [.end] 
-      5.  Global [.global <symbol_list>] (<symbol_list> a,...)
-      6.  Empty line
-      7.  Extern [.extern <symbol_list>]
-      8.  Skip [.skip <literal>] num_of_bytes filled with 0
-      9.  Word [.word <symbol_or_literal_list>], 4B for each, initialize with their values
-      10. Instruction
-    */
     cout << "Assembler:Line: " + line << endl;
 
     removeComment(line);  // deletes the comment leaving the rest

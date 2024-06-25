@@ -539,13 +539,13 @@ void Linker::printCode() {
   outfile.open(outputFile);
   int i = 0;
   // print symbolTable
-  for(auto &sym:symbolTableLinker) {
+  /*for(auto &sym:symbolTableLinker) {
     outfile << setw(10) << left << sym.first << ":" << decimalToHexadecimal(sym.second, 8)  << endl;
   }
   // print section
   for(auto &sec:sectionTableLinker) {
     outfile << setw(10) << left << sec.first << ":" << decimalToHexadecimal(sec.second, 8) << endl;
-  }
+  }*/
 
   for(const auto& secI:sectionOrderForPrint) {
     for(const auto& sec: sectionSize) {
